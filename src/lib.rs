@@ -211,19 +211,19 @@ impl NN {
 
         // setup the rest of the layers
         let mut prev_layer_size = first_layer_size;
-        for &layer_size in it {
-            let mut layer: Vec<Vec<f64>> = Vec::with_capacity(layer_size as usize);
-            for _ in 0..layer_size {
-                let mut tmp = (0..prev_layer_size + 1)
-                    .map(|_| rng.gen_range(-0.5f64..0.5f64))
-                    .collect::<Vec<f64>>();
-                tmp.shrink_to_fit();
-                layer.push(tmp);
-            }
-            layer.shrink_to_fit();
+        let sample = rand::distributions::Uniform::from(-0.5f64..0.5f64);
+        it.for_each(|layer_size| {
+            let layer = (0..*layer_size)
+                .map(|_| {
+                    (&mut rng)
+                        .sample_iter(sample)
+                        .take(prev_layer_size as usize + 1)
+                        .collect::<Vec<f64>>()
+                })
+                .collect();
             layers.push(layer);
-            prev_layer_size = layer_size;
-        }
+            prev_layer_size = *layer_size;
+        });
         layers.shrink_to_fit();
         NN {
             layers: layers,
@@ -361,9 +361,7 @@ impl NN {
 
         training_error_rate
     }
-    // fn modify_leaning_rate(epoch: u32, base_min: f64, base_max: f64) -> f64 {
 
-    // }
     fn do_run(&self, inputs: &[f64]) -> Vec<Vec<f64>> {
         let mut results = Vec::with_capacity(self.layers.len() + 1);
         results.push(inputs.to_vec());
@@ -392,7 +390,7 @@ impl NN {
                 for node_index in 0..layer.len() {
                     let node = layer.get_unchecked_mut(node_index);
                     let node_weight_updates = layer_weight_updates.get_unchecked(node_index);
-                    for (weight_index,node) in node.iter_mut().enumerate() {
+                    for (weight_index, node) in node.iter_mut().enumerate() {
                         let weight_update = *(node_weight_updates.get_unchecked(weight_index));
                         let prev_delta = *(prev_deltas
                             .get_unchecked(layer_index)
@@ -444,15 +442,15 @@ impl NN {
                 };
 
                 // calculate weight updates for this node
-                for weight_index in 0..node_len {
+                for weight_index in 0..node_len{ unsafe {
                     let prev_layer_result = if weight_index == 0 {
                         1f64 // threshold
                     } else {
-                        prev_layer_results[weight_index - 1]
+                        *prev_layer_results.get_unchecked(weight_index - 1)
                     };
                     let weight_update = node_error * prev_layer_result;
                     node_weight_updates.push(weight_update);
-                }
+                }}
 
                 layer_errors.push(node_error);
                 layer_weight_updates.push(node_weight_updates);
@@ -489,15 +487,16 @@ impl NN {
 fn modified_dotprod(node: &[f64], values: &[f64]) -> f64 {
     let mut it = node.iter();
     let tmp = *it.next().unwrap(); // start with the threshold weight
-    it.zip(values.iter()).fold(tmp, |acc, x| acc + x.0 * x.1)
+    it.zip(values.iter()).fold(tmp, |acc, x| x.0 * x.1 + acc)
 }
-
+#[inline(always)]
 fn sigmoid(y: f64) -> f64 {
-    1f64 / (1f64 + (-y).exp())
+    (1f64 + (-y).exp()).recip()
 }
 
 // takes two arrays and enumerates the iterator produced by zipping each of
 // their iterators together
+#[inline(always)]
 fn iter_zip_enum<'s, 't, S: 's, T: 't>(
     s: &'s [S],
     t: &'t [T],
