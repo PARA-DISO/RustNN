@@ -1,6 +1,6 @@
 # RustNN
 
-[![Build Status](https://travis-ci.org/jackm321/RustNN.svg?branch=master)](https://travis-ci.org/jackm321/RustNN)
+<!-- [![Build Status](https://travis-ci.org/jackm321/RustNN.svg?branch=master)](https://travis-ci.org/jackm321/RustNN) -->
 
 An easy to use neural network library written in Rust.
 
